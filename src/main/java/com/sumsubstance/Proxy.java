@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Bean
-public class Proxy {
+public class Proxy implements MTurk {
     private static final Logger log = LogManager.getLogger(Proxy.class); //todo: log4j server config file
 
     private static final String SANDBOX_ENDPOINT = "mturk-requester-sandbox.us-east-1.amazonaws.com";
@@ -42,15 +42,17 @@ public class Proxy {
         return builder.build();
     }
 
+    @Override
     public void createHits(Collection<String> msg) {
         msg.stream().map(id -> { try {return createHIT(QUESTION_FILE, id, client);} catch(IOException e) {log.error(e);} return null;});
     }
 
+    @Override
     public List<SBtuple> processReviewablesHits() {
-        return collectRevieableHits().stream().map(hit -> processHit(hit)).collect(Collectors.toList());
+        return collectReviweableHits().stream().map(hit -> processHit(hit)).collect(Collectors.toList());
     }
 
-    private Collection<HIT> collectRevieableHits() {
+    private Collection<HIT> collectReviweableHits() {
         ListReviewableHITsRequest r = new ListReviewableHITsRequest();
         return client.listReviewableHITs(r).getHITs();
     }

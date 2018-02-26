@@ -3,9 +3,9 @@ package com.sumsubstance;
 import java.util.Collection;
 
 @Bean
-public class Detector {
+public class Detecter {
     @AutoWire
-    private Proxy proxy;
+    private MTurk proxy;
 
     public void scan() {
         proxy.createHits(collectFreshDocIdsFromDb());

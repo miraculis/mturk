@@ -1,12 +1,12 @@
 @startuml
 Detector -> Proxy: new documents
 Proxy -> Mturk: HITs
-Monitor -> Proxy: processReviewable
+Main -> Proxy: processReviewable
 Proxy -> Mturk: listReviewables
 Mturk -> Proxy: hitIds
 Proxy -> Mturk: listAssignmentsForHit
 Mturk -> Proxy: assignments
 Proxy -> Mturk: approve&reject
-Proxy -> Monitor: results
-Monitor -> Exporter: results
+Proxy -> Main: results
+Main -> Exporter: results
 @enduml

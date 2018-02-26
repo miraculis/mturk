@@ -73,6 +73,7 @@
     <orderEntry type="library" name="Gradle: com.google.guava:guava:23.0" level="project" />
     <orderEntry type="library" name="Gradle: com.amazonaws:aws-java-sdk:1.9.6" level="project" />
     <orderEntry type="library" name="Gradle: commons-codec:commons-codec:1.9" level="project" />
+    <orderEntry type="module" module-name="mturk-gate_main" scope="TEST" />
   </component>
   <component name="TestModuleProperties" production-module="mturk-gate_main" />
 </module>
