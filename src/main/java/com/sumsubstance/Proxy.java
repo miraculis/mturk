@@ -22,7 +22,7 @@ public class Proxy implements MTurk {
     private static final String PROD_ENDPOINT = "https://mturk-requester.us-east-1.amazonaws.com";
     private static final String SIGNING_REGION = "us-east-1";
 
-    private static final String QUESTION_FILE = ""; //todo: create project template
+    private static final String QUESTION_FILE = "my_question.xml"; //todo: create project template
 
     private AmazonMTurk client;
 
