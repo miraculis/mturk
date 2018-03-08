@@ -12,67 +12,68 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@Bean
-public class Proxy implements MTurk {
+public class Proxy {
     private static final Logger log = LogManager.getLogger(Proxy.class); //todo: log4j server config file
 
     private static final String SANDBOX_ENDPOINT = "mturk-requester-sandbox.us-east-1.amazonaws.com";
     private static final String PROD_ENDPOINT = "https://mturk-requester.us-east-1.amazonaws.com";
     private static final String SIGNING_REGION = "us-east-1";
 
-    private static final String QUESTION_FILE = "my_question.xml"; //todo: create project template
+    private static final String QUESTION_FILE = "my_question.xml";
+    private static final long LIFETIME_IN_SECONDS = 600L;
 
     private AmazonMTurk client;
 
-    public Proxy() {
-        this.client = sandbox();
+    private Proxy(AmazonMTurk client) {
+        this.client = client;
     }
 
-    private static AmazonMTurk sandbox() {
+    public static Proxy sandbox() {
         AmazonMTurkClientBuilder builder = AmazonMTurkClientBuilder.standard();
         builder.setEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(SANDBOX_ENDPOINT, SIGNING_REGION));
-        return builder.build();
+        return new Proxy(builder.build());
     }
 
-    private static AmazonMTurk production() {
+    public static Proxy production() {
         AmazonMTurkClientBuilder builder = AmazonMTurkClientBuilder.standard();
         builder.setEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(PROD_ENDPOINT, SIGNING_REGION));
-        return builder.build();
+        return new Proxy(builder.build());
     }
 
-    @Override
-    public void createHits(Collection<String> msg) {
-        msg.stream().map(id -> { try {return createHIT(QUESTION_FILE, id, client);} catch(IOException e) {log.error(e);} return null;});
+    public void submit(Tuple<String, String> h) throws Exception {
+        createHIT(QUESTION_FILE, h.getLeft(), client, h.getRight());
     }
 
-    @Override
-    public List<SBtuple> processReviewablesHits() {
-        return collectReviweableHits().stream().map(hit -> processHit(hit)).collect(Collectors.toList());
+    public void approve(Processing.Assignment x) {
+        log.debug("The worker with ID " + x.getWorkerId() + " submitted assignment "
+                + x.getAsnId() + " and gave the answer " + x.isResult());
+
+        // Approve the assignment
+        ApproveAssignmentRequest approveRequest = new ApproveAssignmentRequest();
+        approveRequest.setAssignmentId(x.getAsnId());
+        approveRequest.setRequesterFeedback("Good work, thank you!");
+        approveRequest.setOverrideRejection(false);
+        client.approveAssignment(approveRequest);
+        log.debug("Assignment has been approved: " + x.getAsnId());
     }
 
-    private Collection<HIT> collectReviweableHits() {
-        ListReviewableHITsRequest r = new ListReviewableHITsRequest();
-        return client.listReviewableHITs(r).getHITs();
+    public Collection<Processing.Assignment> available() {
+        return client.listReviewableHITs(new ListReviewableHITsRequest()).getHITs().stream().
+                map((h)-> {
+                    final ListAssignmentsForHITRequest r = new ListAssignmentsForHITRequest();
+                    r.setHITId(h.getHITId());
+                    return client.listAssignmentsForHIT(r).getAssignments().stream().map((a) -> toAssignment(h, a));
+                }).flatMap(Function.identity()).collect(Collectors.toList());
     }
 
-    private SBtuple processHit(HIT hit) {
-        ListAssignmentsForHITRequest r = new ListAssignmentsForHITRequest();
-        r.setHITId(hit.getHITId());
-        List<Assignment> as = client.listAssignmentsForHIT(r).getAssignments();
-        if (as.size() < 3) {
-            log.error("less than 3 assignments");
-        }
-        boolean r1 = as.get(0).getAnswer().equalsIgnoreCase("yes"),
-                r2 = as.get(1).getAnswer().equalsIgnoreCase("yes"),
-                r3 = as.get(2).getAnswer().equalsIgnoreCase("yes");
-
-        approveAssignments(as);
-        return SBtuple.of(hit.getRequesterAnnotation(), r1 && r2 || r1 && r3 || r2 && r3);
+    private static Processing.Assignment toAssignment(HIT hit, com.amazonaws.services.mturk.model.Assignment a) {
+        return new Processing.Assignment(hit.getHITId(), a.getAssignmentId(), a.getWorkerId(), hit.getExpiration().getTime(), hit.getRequesterAnnotation(), "yes".equalsIgnoreCase(a.getAnswer()));
     }
 
-    private String createHIT(final String questionXmlFile, String slf, AmazonMTurk client) throws IOException {
+    private HIT createHIT(final String questionXmlFile, String slf, AmazonMTurk client, String imageUrl) throws IOException {
 
         // QualificationRequirement: almost anyone can work on the task
         QualificationRequirement localeRequirement = new QualificationRequirement();
@@ -85,8 +86,8 @@ public class Proxy implements MTurk {
         String questionSample = new String(Files.readAllBytes(Paths.get(questionXmlFile)));
 
         CreateHITRequest request = new CreateHITRequest();
-        request.setMaxAssignments(3);
-        request.setLifetimeInSeconds(600L);
+        request.setMaxAssignments(Processing.MAX_ASSIGNMENTS);
+        request.setLifetimeInSeconds(LIFETIME_IN_SECONDS);
         request.setAssignmentDurationInSeconds(600L);
         request.setRequesterAnnotation(slf);
 
@@ -98,20 +99,7 @@ public class Proxy implements MTurk {
         request.setQuestion(questionSample);
 
         CreateHITResult result = client.createHIT(request);
-        return result.getHIT().getHITId();
-    }
-
-    private void approveAssignments(Collection<Assignment> a) {
-        a.stream().forEach(x -> {
-            log.debug("The worker with ID " + x.getWorkerId() + " submitted assignment "
-                    + x.getAssignmentId() + " and gave the answer " + x.getAnswer());
-
-            // Approve the assignment
-            ApproveAssignmentRequest approveRequest = new ApproveAssignmentRequest();
-            approveRequest.setAssignmentId(x.getAssignmentId());
-            approveRequest.setRequesterFeedback("Good work, thank you!");
-            approveRequest.setOverrideRejection(false);
-            log.debug("Assignment has been approved: " + x.getAssignmentId());
-        });
+        System.out.println(String.format("%s hit created)", result.getHIT().getHITId()));
+        return result.getHIT();
     }
 }
