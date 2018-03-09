@@ -1,4 +1,4 @@
-package com.sumsubstance;
+package com.mturktest;
 
 public class Tuple<X, Y> {
     private final X left;

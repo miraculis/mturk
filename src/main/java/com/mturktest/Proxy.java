@@ -1,4 +1,4 @@
-package com.sumsubstance;
+package com.mturktest;
 
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.mturk.AmazonMTurk;
