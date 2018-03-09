@@ -10,8 +10,9 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
+import java.util.Collections;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -65,6 +66,8 @@ public class Proxy {
                 map((h)-> {
                     final ListAssignmentsForHITRequest r = new ListAssignmentsForHITRequest();
                     r.setHITId(h.getHITId());
+                    r.setAssignmentStatuses(Collections.singletonList(AssignmentStatus.Submitted.name()));
+                    r.setMaxResults(20);
                     return client.listAssignmentsForHIT(r).getAssignments().stream().map((a) -> toAssignment(h, a));
                 }).flatMap(Function.identity()).collect(Collectors.toList());
     }
@@ -78,7 +81,7 @@ public class Proxy {
         // QualificationRequirement: almost anyone can work on the task
         QualificationRequirement localeRequirement = new QualificationRequirement();
         localeRequirement.setQualificationTypeId("3PUFTE5I6SP7VKCILOPX6N3IGEHW2E");
-        localeRequirement.setIntegerValues(List.of(0));
+        localeRequirement.setIntegerValues(Arrays.asList(0));
         localeRequirement.setComparator(Comparator.GreaterThan);
         localeRequirement.setRequiredToPreview(true);
 
